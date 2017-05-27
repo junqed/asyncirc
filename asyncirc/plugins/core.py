@@ -3,8 +3,9 @@ import logging
 import time
 
 from blinker import signal
-from asyncirc.irc import get_user
-from asyncirc.parser import RFC1459Message
+
+from ..irc import get_user
+from ..parser import RFC1459Message
 
 logger = logging.getLogger("asyncirc.plugins.core")
 

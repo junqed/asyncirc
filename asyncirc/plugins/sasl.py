@@ -1,11 +1,11 @@
-from blinker import signal
 import base64
-
 import logging
 
-logger = logging.getLogger("asyncirc.plugins.sasl")
+from blinker import signal
 
-import asyncirc.plugins.cap
+from . import cap
+
+logger = logging.getLogger("asyncirc.plugins.sasl")
 
 authentication_info = {}
 
@@ -18,7 +18,7 @@ def auth(client, username, password):
     Queue an authentication request using SASL PLAIN on the given client, with
     the given account name and password.
     """
-    asyncirc.plugins.cap.cap_wait(client.netid, "sasl")
+    cap.cap_wait(client.netid, "sasl")
     authentication_info[client.netid] = [username, password]
 
 
@@ -50,7 +50,7 @@ def handle_900(message):
     logger.debug("SASL authentication complete.")
     signal("sasl-auth-complete").send(message)
     signal("auth-complete").send(message)
-    asyncirc.plugins.cap.cap_done(message.client, "sasl")
+    cap.cap_done(message.client, "sasl")
 
 
 def handle_failure(message):

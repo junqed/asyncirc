@@ -1,6 +1,7 @@
+import logging
+
 from blinker import signal
 
-import logging
 logger = logging.getLogger("asyncirc.plugins.cap")
 
 capabilities_requested = {}

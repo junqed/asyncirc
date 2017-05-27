@@ -3,7 +3,7 @@ import collections
 import importlib
 import logging
 import random
-import ssl
+
 from blinker import signal
 
 loop = asyncio.get_event_loop()
@@ -291,4 +291,4 @@ def disconnected(client_wrapper):
 
 signal("connection-lost").connect(disconnected)
 
-import asyncirc.plugins.core
+from .plugins import core  # noqa

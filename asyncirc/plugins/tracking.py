@@ -1,6 +1,9 @@
-from blinker import signal
-from asyncirc.parser import RFC1459Message
 from collections import defaultdict
+
+from blinker import signal
+
+from ..parser import RFC1459Message
+
 
 class Registry:
     def __init__(self):
@@ -301,6 +304,5 @@ def handle_mode_unset(message, mode, arg, user, channel):
     prefixes = parse_prefixes(message.client)
     if mode in prefixes:
         get_channel(message, channel).flags[prefixes[mode]].discard(arg)
-
 
 signal("plugin-registered").send("asyncirc.plugins.tracking")
