@@ -69,7 +69,9 @@ def handle_irc_cap(message):
         if message.client.netid not in registration_state:
             registration_state[message.client.netid] = set()
         registration_state[message.client.netid].add("caps-known")
-        request_capabilities(message.client, capabilities_available[message.client.netid] & capabilities_requested[message.client.netid])
+        request_capabilities(
+            message.client,
+            capabilities_available[message.client.netid] & capabilities_requested[message.client.netid])
 
     if message.params[1] == "ACK":
         logger.debug("ACK received from server, ending capability negotiation. {}".format(message.client.caps))

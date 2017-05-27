@@ -1,6 +1,5 @@
 import asyncio
 import collections
-import importlib
 import logging
 import random
 
@@ -18,12 +17,6 @@ def plugin_registered_handler(plugin_name):
 signal("plugin-registered").connect(plugin_registered_handler)
 
 
-def load_plugins(*plugins):
-    for plugin in plugins:
-        if plugin not in plugins:
-            importlib.import_module(plugin)
-
-
 class User:
     """
     Represents a user on IRC, with their nickname, username, and hostname.
@@ -33,15 +26,17 @@ class User:
         self.user = user
         self.host = host
         self.hostmask = "{}!{}@{}".format(nick, user, host)
+
         self._register_wait = 0
 
     @classmethod
-    def from_hostmask(self, hostmask):
+    def from_hostmask(cls, hostmask):
         if "!" in hostmask and "@" in hostmask:
             nick, userhost = hostmask.split("!", maxsplit=1)
             user, host = userhost.split("@", maxsplit=1)
-            return self(nick, user, host)
-        return self(None, None, hostmask)
+            return cls(nick, user, host)
+
+        return cls(None, None, hostmask)
 
 
 class IRCProtocolWrapper:
@@ -69,9 +64,9 @@ class IRCProtocol(asyncio.Protocol):
     Represents a connection to IRC.
     """
 
-    def connection_made(self, transport):
+    def __init__(self):
         self.work = True
-        self.transport = transport
+        self.transport = None
         self.wrapper = None
         self.logger = logging.getLogger("asyncirc.IRCProtocol")
         self.last_ping = float('inf')
@@ -88,15 +83,27 @@ class IRCProtocol(asyncio.Protocol):
         self.channels_to_join = []
         self.autoreconnect = True
 
+        self.nick = None
+        self.user = None
+        self.realname = None
+        self.mode = None
+        self.password = None
+
+    def connection_made(self, transport):
+        self.transport = transport
+
         signal("connected").send(self)
         self.logger.info("Connection success.")
         self.process_queue()
 
     def data_received(self, data):
-        if not self.work: return
+        if not self.work:
+            return
+
         data = data.decode()
 
         self.buf += data
+
         while "\n" in self.buf:
             index = self.buf.index("\n")
             line_received = self.buf[:index].strip()
@@ -105,20 +112,25 @@ class IRCProtocol(asyncio.Protocol):
             signal("raw").send(self, text=line_received)
 
     def connection_lost(self, exc):
-        if not self.work: return
+        if not self.work:
+            return
+
         self.logger.critical("Connection lost.")
         signal("connection-lost").send(self.wrapper)
 
-    ## Core helper functions
+    # Core helper functions
 
     def process_queue(self):
         """
         Pull data from the pending messages queue and send it. Schedule ourself
         to be executed again later.
         """
-        if not self.work: return
+        if not self.work:
+            return
+
         if self.queue:
             self._writeln(self.queue.pop(0))
+
         loop.call_later(self.queue_timer, self.process_queue)
 
     def on(self, event):
@@ -137,7 +149,9 @@ class IRCProtocol(asyncio.Protocol):
         """
         if not isinstance(line, bytes):
             line = line.encode("utf-8")
+
         self.logger.debug(line)
+
         self.transport.write(line + b"\r\n")
         signal("irc-send").send(line.decode())
 
@@ -146,6 +160,7 @@ class IRCProtocol(asyncio.Protocol):
         Queue a message for sending to the currently connected IRC server.
         """
         self.queue.append(line)
+
         return self
 
     def register(self, nick, user, realname, mode="+i", password=None):
@@ -158,6 +173,7 @@ class IRCProtocol(asyncio.Protocol):
         self.realname = realname
         self.mode = mode
         self.password = password
+
         return self
 
     def _register(self):
@@ -166,13 +182,15 @@ class IRCProtocol(asyncio.Protocol):
         """
         if self.password:
             self.writeln("PASS {}".format(self.password))
+
         self.writeln("USER {0} {1} {0} :{2}".format(self.user, self.mode, self.realname))
         self.writeln("NICK {}".format(self.nick))
+
         self.logger.debug("Sent registration information")
         signal("registration-complete").send(self)
         self.nickname = self.nick
 
-    ## protocol abstractions
+    # protocol abstractions
 
     def join(self, channels):
         """
@@ -182,6 +200,7 @@ class IRCProtocol(asyncio.Protocol):
         """
         if not isinstance(channels, list):
             channels = [channels]
+
         channels_str = ",".join(channels)
 
         if not self.registration_complete:
@@ -199,6 +218,7 @@ class IRCProtocol(asyncio.Protocol):
         """
         if not isinstance(channels, list):
             channels = [channels]
+
         channels_str = ",".join(channels)
         self.writeln("PART {}".format(channels_str))
 

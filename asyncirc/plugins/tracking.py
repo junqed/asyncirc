@@ -24,8 +24,8 @@ signal("netid-available").connect(create_registry)
 
 
 class User:
-    def __init__(self, nick, user, host, netid=None):
-        self.nick = nick
+    def __init__(self, _nick, user, host, netid=None):
+        self.nick = _nick
         self.user = user
         self.host = host
         self.account = None
@@ -65,16 +65,16 @@ class Channel:
 # utility functions
 
 
-def parse_prefixes(server): # -> {'v': '+', ...}
+def parse_prefixes(server):  # -> {'v': '+', ...}
     keys, values = server.server_supports['PREFIX'][1:].split(")")
     return {keys[i]: values[i] for i in range(len(keys))}
 
 
 def parse_hostmask(hostmask):
     if "!" in hostmask and "@" in hostmask:
-        nick, userhost = hostmask.split("!", maxsplit=1)
+        _nick, userhost = hostmask.split("!", maxsplit=1)
         user, host = userhost.split("@", maxsplit=1)
-        return nick, user, host
+        return _nick, user, host
     return hostmask, None, None
 
 
@@ -90,26 +90,26 @@ def get_user(netid_or_message, hostmask=None):
         raise Exception("hostmask passed as none, but no message was passed")
 
     registry = registries[netid]
-    nick, user, host = parse_hostmask(hostmask)
+    _nick, user, host = parse_hostmask(hostmask)
     if nick in registry.users:
         if user is not None and host is not None:
-            registry.users[nick].user = user
-            registry.users[nick].host = host
-        return registry.users[nick]
+            registry.users[_nick].user = user
+            registry.users[_nick].host = host
+        return registry.users[_nick]
 
     if user is not None and host is not None:
-        registry.users[nick] = User(nick, user, host, netid)
-        return registry.users[nick]
+        registry.users[_nick] = User(_nick, user, host, netid)
+        return registry.users[_nick]
 
-    if "." in nick: # it's probably a server
-        return User(nick, nick, nick, netid)
+    if "." in _nick:  # it's probably a server
+        return User(_nick, _nick, _nick, netid)
 
     # We don't know about this user yet, so return a dummy.
     # This will be updated when get_user is called again with the same nick
     # and a full hostmask. This should be really rare.
     # FIXME it would probably be a good idea to /whois here
-    registry.users[nick] = User(nick, None, None, netid)
-    return registry.users[nick]
+    registry.users[_nick] = User(_nick, None, None, netid)
+    return registry.users[_nick]
 
 
 def get_channel(netid_or_message, x):
@@ -163,29 +163,29 @@ def check_sync_done(message, channel):
 
 @topic.connect
 def handle_topic_set(message):
-    channel, topic = message.params[1:]
-    get_channel(message, channel).topic = topic
+    channel, _topic = message.params[1:]
+    get_channel(message, channel).topic = _topic
 
 
 @topic_changed.connect
 def handle_topic_changed(message):
-    channel, topic = message.params
-    get_channel(message, channel).topic = topic
-    signal("topic-changed").send(message, user=get_user(message), channel=channel, topic=topic)
+    channel, _topic = message.params
+    get_channel(message, channel).topic = _topic
+    signal("topic-changed").send(message, user=get_user(message), channel=channel, topic=_topic)
 
 
 @extwho_response.connect
 def handle_extwho_response(message):
-    channel, ident, host, nick, account = message.params[1:]
-    user = get_user(message, "{}!{}@{}".format(nick, ident, host))
-    user.account = account if account != "0" else None
+    channel, ident, host, _nick, _account = message.params[1:]
+    user = get_user(message, "{}!{}@{}".format(_nick, ident, host))
+    user.account = _account if _account != "0" else None
     handle_join(message, user, channel, real=False)
 
 
 @who_response.connect
 def handle_who_response(message):
-    channel, ident, host, server, nick, state, realname = message.params[1:]
-    user = get_user(message, "{}!{}@{}".format(nick, ident, host))
+    channel, ident, host, server, _nick, state, realname = message.params[1:]
+    user = get_user(message, "{}!{}@{}".format(_nick, ident, host))
     handle_join(message, user, channel, real=False)
 
 
@@ -244,14 +244,14 @@ def handle_extjoin(message):
     if "extended-join" not in message.client.caps:
         return
 
-    account = message.params[1]
-    get_user(message).account = account if account != "*" else None
+    _account = message.params[1]
+    get_user(message).account = _account if _account != "*" else None
 
 
 @account.connect
 def account_notify(message):
-    account = message.params[0]
-    get_user(message).account = account if account != "*" else None
+    _account = message.params[0]
+    get_user(message).account = _account if _account != "*" else None
 
 
 @part.connect
@@ -259,6 +259,7 @@ def handle_part(message, user, channel, reason):
     user = get_user(message, user.nick)
     if user == message.client.nickname:
         get_channel(message, channel).available = False
+
     message.client.tracking_registry.mappings.discard((user.nick, channel))
 
 
@@ -266,6 +267,7 @@ def handle_part(message, user, channel, reason):
 def handle_quit(message, user, reason):
     user = get_user(message, user.nick)
     del message.client.tracking_registry.users[user.nick]
+
     for channel in set(user.channels):
         message.client.tracking_registry.mappings.remove((user.nick, channel))
 
