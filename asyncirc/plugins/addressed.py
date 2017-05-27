@@ -2,8 +2,10 @@ from blinker import signal
 
 command_character_registry = []
 
+
 def register_command_character(c):
     command_character_registry.append(c)
+
 
 def handle_public_messages(message, user, target, text):
     prefix = message.client.nickname

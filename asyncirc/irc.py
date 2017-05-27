@@ -5,20 +5,24 @@ import logging
 import random
 import ssl
 from blinker import signal
+
 loop = asyncio.get_event_loop()
 
 connections = {}
-
 plugins = []
+
+
 def plugin_registered_handler(plugin_name):
     plugins.append(plugin_name)
 
 signal("plugin-registered").connect(plugin_registered_handler)
 
+
 def load_plugins(*plugins):
     for plugin in plugins:
         if plugin not in plugins:
             importlib.import_module(plugin)
+
 
 class User:
     """
@@ -39,6 +43,7 @@ class User:
             return self(nick, user, host)
         return self(None, None, hostmask)
 
+
 class IRCProtocolWrapper:
     """
     Wraps an IRCProtocol object to allow for automatic reconnection. Only used
@@ -57,6 +62,7 @@ class IRCProtocolWrapper:
             self.protocol = val
         else:
             setattr(self.protocol, attr, val)
+
 
 class IRCProtocol(asyncio.Protocol):
     """
@@ -214,7 +220,7 @@ class IRCProtocol(asyncio.Protocol):
         s = "a{}".format("".join([random.choice("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ") for i in range(8)]))
         return s
 
-    ## catch-all
+    # catch-all
 
     # def __getattr__(self, attr):
     #     if attr in self.__dict__:
@@ -227,10 +233,12 @@ class IRCProtocol(asyncio.Protocol):
     #     _send_command.__name__ == attr
     #     return _send_command
 
+
 def get_user(hostmask):
     if "!" not in hostmask or "@" not in hostmask:
         return User(hostmask, hostmask, hostmask)
     return User.from_hostmask(hostmask)
+
 
 def connect(server, port=6697, use_ssl=True):
     """
@@ -245,6 +253,7 @@ def connect(server, port=6697, use_ssl=True):
     connections[protocol.netid] = protocol.wrapper
     return protocol.wrapper
 
+
 def disconnected(client_wrapper):
     """
     Either reconnect the IRCProtocol object, or exit, depending on
@@ -258,13 +267,18 @@ def disconnected(client_wrapper):
         sys.exit(2)
 
     connector = loop.create_connection(IRCProtocol, **client_wrapper.server_info)
+
     def reconnected(f):
         """
         Callback function for a successful reconnection.
         """
         client_wrapper.logger.critical("Reconnected! {}".format(client_wrapper.netid))
         _, protocol = f.result()
-        protocol.register(client_wrapper.nick, client_wrapper.user, client_wrapper.realname, client_wrapper.mode, client_wrapper.password)
+        protocol.register(client_wrapper.nick,
+                          client_wrapper.user,
+                          client_wrapper.realname,
+                          client_wrapper.mode,
+                          client_wrapper.password)
         protocol.channels_to_join = client_wrapper.channels_to_join
         protocol.server_info = client_wrapper.server_info
         protocol.netid = client_wrapper.netid

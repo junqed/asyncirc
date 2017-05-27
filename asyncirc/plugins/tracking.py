@@ -11,11 +11,14 @@ class Registry:
 
 registries = {}
 
+
 def create_registry(client):
     registries[client.netid] = Registry()
     client.tracking_registry = registries[client.netid]
 
+
 signal("netid-available").connect(create_registry)
+
 
 class User:
     def __init__(self, nick, user, host, netid=None):
@@ -37,6 +40,7 @@ class User:
 
     channels = property(_get_channels)
 
+
 class Channel:
     def __init__(self, channel, netid=None):
         self.channel = channel
@@ -55,11 +59,13 @@ class Channel:
 
     users = property(_get_users)
 
-## utility functions
+# utility functions
+
 
 def parse_prefixes(server): # -> {'v': '+', ...}
     keys, values = server.server_supports['PREFIX'][1:].split(")")
     return {keys[i]: values[i] for i in range(len(keys))}
+
 
 def parse_hostmask(hostmask):
     if "!" in hostmask and "@" in hostmask:
@@ -67,6 +73,7 @@ def parse_hostmask(hostmask):
         user, host = userhost.split("@", maxsplit=1)
         return nick, user, host
     return hostmask, None, None
+
 
 def get_user(netid_or_message, hostmask=None):
     if isinstance(netid_or_message, RFC1459Message):
@@ -101,6 +108,7 @@ def get_user(netid_or_message, hostmask=None):
     registry.users[nick] = User(nick, None, None, netid)
     return registry.users[nick]
 
+
 def get_channel(netid_or_message, x):
     if isinstance(netid_or_message, RFC1459Message):
         netid = netid_or_message.client.netid
@@ -112,7 +120,7 @@ def get_channel(netid_or_message, x):
         registry.channels[x] = Channel(x, netid)
     return registry.channels[x]
 
-## signal definitions
+# signal definitions
 
 join = signal("join")
 extjoin = signal("irc-join")
@@ -132,6 +140,7 @@ names_done = signal("irc-366")
 mode_set = signal("+mode")
 mode_unset = signal("-mode")
 
+
 def sync_channel(client, channel):
     if client.server_supports["WHOX"]:
         client.writeln("WHO {} %cnuha".format(channel))
@@ -140,22 +149,27 @@ def sync_channel(client, channel):
     client.writeln("MODE {}".format(channel))
 
 sync_complete_set = {"mode", "who", "names"}
+
+
 def check_sync_done(message, channel):
     if get_channel(message, channel).state == sync_complete_set:
         signal("sync-done").send(message, channel=channel)
 
-## event handlers
+# event handlers
+
 
 @topic.connect
 def handle_topic_set(message):
     channel, topic = message.params[1:]
     get_channel(message, channel).topic = topic
 
+
 @topic_changed.connect
 def handle_topic_changed(message):
     channel, topic = message.params
     get_channel(message, channel).topic = topic
     signal("topic-changed").send(message, user=get_user(message), channel=channel, topic=topic)
+
 
 @extwho_response.connect
 def handle_extwho_response(message):
@@ -164,11 +178,13 @@ def handle_extwho_response(message):
     user.account = account if account != "0" else None
     handle_join(message, user, channel, real=False)
 
+
 @who_response.connect
 def handle_who_response(message):
     channel, ident, host, server, nick, state, realname = message.params[1:]
     user = get_user(message, "{}!{}@{}".format(nick, ident, host))
     handle_join(message, user, channel, real=False)
+
 
 @names_response.connect
 def handle_names_response(message):
@@ -184,12 +200,14 @@ def handle_names_response(message):
         for prefix in applicable_prefixes:
             get_channel(message, channel).flags[prefix].add("".join(name_list))
 
+
 @names_done.connect
 def handle_names_done(message):
     channel, dummy = message.params[1:]
     channel_obj = get_channel(message, channel)
     channel_obj.state = channel_obj.state | {"names"}
     check_sync_done(message, channel)
+
 
 @channel_mode.connect
 def handle_received_mode(message):
@@ -199,12 +217,14 @@ def handle_received_mode(message):
     channel_obj.state = channel_obj.state | {"mode"}
     check_sync_done(message, channel)
 
+
 @who_done.connect
 def handle_who_done(message):
     channel = message.params[1]
     channel_obj = get_channel(message, channel)
     channel_obj.state = channel_obj.state | {"who"}
     check_sync_done(message, channel)
+
 
 @join.connect
 def handle_join(message, user, channel, real=True):
@@ -215,17 +235,21 @@ def handle_join(message, user, channel, real=True):
         get_channel(message, channel).available = True
     message.client.tracking_registry.mappings.add((user.nick, channel))
 
+
 @extjoin.connect
 def handle_extjoin(message):
     if "extended-join" not in message.client.caps:
         return
+
     account = message.params[1]
     get_user(message).account = account if account != "*" else None
+
 
 @account.connect
 def account_notify(message):
     account = message.params[0]
     get_user(message).account = account if account != "*" else None
+
 
 @part.connect
 def handle_part(message, user, channel, reason):
@@ -234,6 +258,7 @@ def handle_part(message, user, channel, reason):
         get_channel(message, channel).available = False
     message.client.tracking_registry.mappings.discard((user.nick, channel))
 
+
 @quit_.connect
 def handle_quit(message, user, reason):
     user = get_user(message, user.nick)
@@ -241,9 +266,11 @@ def handle_quit(message, user, reason):
     for channel in set(user.channels):
         message.client.tracking_registry.mappings.remove((user.nick, channel))
 
+
 @kick.connect
 def handle_kick(message, kicker, kickee, channel, reason):
     message.client.tracking_registry.mappings.discard((kickee, channel))
+
 
 @nick.connect
 def handle_nick(message, user, new_nick):
@@ -261,16 +288,19 @@ def handle_nick(message, user, new_nick):
             original_mappings.discard(i)
             original_mappings.add((new_nick, i[1]))
 
+
 @mode_set.connect
 def handle_mode_set(message, mode, arg, user, channel):
     prefixes = parse_prefixes(message.client)
     if mode in prefixes:
         get_channel(message, channel).flags[prefixes[mode]].add(arg)
 
+
 @mode_unset.connect
 def handle_mode_unset(message, mode, arg, user, channel):
     prefixes = parse_prefixes(message.client)
     if mode in prefixes:
         get_channel(message, channel).flags[prefixes[mode]].discard(arg)
+
 
 signal("plugin-registered").send("asyncirc.plugins.tracking")

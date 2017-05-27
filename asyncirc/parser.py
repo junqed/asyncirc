@@ -17,10 +17,18 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 """
 
+
 class RFC1459Message(object):
     """
     Represents an IRC message.
     """
+
+    def __init__(self, verb):
+        self.verb = verb
+        self.tags = {}
+        self.source = None
+        self.params = []
+        self.client = None
 
     @classmethod
     def from_data(cls, verb, params=None, source=None, tags=None):
@@ -28,11 +36,7 @@ class RFC1459Message(object):
         Create a new RFC1459Message from the given verb, parameters, and source
         having the given tags.
         """
-        o = cls()
-        o.verb = verb
-        o.tags = dict()
-        o.source = None
-        o.params = list()
+        o = cls(verb)
 
         if params:
             o.params = params
