@@ -40,8 +40,10 @@ def _redispatch_join(message):
 def _redispatch_part(message):
     user = get_user(message.source)
     channel, reason = message.params[0], None
+
     if len(message.params) > 1:
         reason = message.params[1]
+
     signal("part").send(message, user=user, channel=channel, reason=reason)
 
 
@@ -52,14 +54,17 @@ def _redispatch_quit(message):
 def _redispatch_kick(message):
     kicker = get_user(message.source)
     channel, kickee, reason = message.params[0], get_user(message.params[1]), message.params[2]
+
     signal("kick").send(message, kicker=kicker, kickee=kickee, channel=channel, reason=reason)
 
 
 def _redispatch_nick(message):
     old_user = get_user(message.source)
     new_nick = message.params[0]
+
     if old_user.nick == message.client.nickname:
         message.client.nickname = new_nick
+
     signal("nick").send(message, user=old_user, new_nick=new_nick)
 
 
@@ -70,12 +75,13 @@ def _parse_mode(message):
         argument_modes += message.client.server_supports["PREFIX"].split(")")[0][1:]
     else:
         argument_modes = "beIqaohvlk"
-    print("argument_modes are", argument_modes)
+
     user = get_user(message.source)
     channel = message.params[0]
     modes = message.params[1]
     args = message.params[2:]
     flag = "+"
+
     for mode in modes:
         if mode in "+-":
             flag = mode
@@ -91,6 +97,7 @@ def _parse_mode(message):
 def _server_supports(message):
     supports = message.params[1:-1]  # No need for "Are supported by this server" or bot's nickname
     logging.debug("Server supports {}".format(supports))
+
     for feature in supports:
         if "=" in feature:
             k, v = feature.split("=")
@@ -107,7 +114,7 @@ def _nick_in_use(message):
         message.client.nickname = s
         message.client.writeln("NICK {}".format(s))
 
-    loop.call_later(5, callback)
+    asyncio.get_event_loop().call_later(5, callback)
 
 
 def _ping_servers():
@@ -116,6 +123,7 @@ def _ping_servers():
             client.connection_lost(Exception())
         client.writeln("PING :GNIP")
         client.last_ping = time.time()
+
     asyncio.get_event_loop().call_later(60, _ping_servers)
 
 
@@ -136,6 +144,7 @@ def _redispatch_raw(client, text):
 
 def _register_client(client):
     logger.debug("Sending real registration message")
+
     asyncio.get_event_loop().call_later(1, client._register)
 
 
@@ -147,6 +156,7 @@ def _queue_ping(client):
 def _connection_registered(message):
     message.client.registration_complete = True
     _queue_ping(message.client)
+
     for channel in message.client.channels_to_join:
         message.client.join(channel)
 
