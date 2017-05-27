@@ -262,6 +262,7 @@ def disconnected(client_wrapper):
     client_wrapper.protocol.work = False
     client_wrapper.logger.critical("Disconnected from {}. Attempting to reconnect...".format(client_wrapper.netid))
     signal("disconnected").send(client_wrapper.protocol)
+
     if not client_wrapper.protocol.autoreconnect:
         import sys
         sys.exit(2)
@@ -285,7 +286,8 @@ def disconnected(client_wrapper):
         protocol.wrapper = client_wrapper
         signal("netid-available").send(protocol)
         client_wrapper.protocol = protocol
-    asyncio.async(connector).add_done_callback(reconnected)
+
+    asyncio.ensure_future(connector).add_done_callback(reconnected)
 
 signal("connection-lost").connect(disconnected)
 
