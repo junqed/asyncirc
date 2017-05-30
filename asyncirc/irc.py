@@ -133,13 +133,13 @@ class IRCProtocol(asyncio.Protocol):
 
         loop.call_later(self.queue_timer, self.process_queue)
 
-    def on(self, event):
+    def on(self, event, _weak=True):
         def process(f):
             """
             Register an event with Blinker. Convienence function.
             """
             self.logger.debug("Registering function for event {}".format(event))
-            signal(event).connect(f)
+            signal(event).connect(f, weak=_weak)
             return f
         return process
 
